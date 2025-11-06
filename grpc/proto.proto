@@ -1,0 +1,20 @@
+syntax = "proto3";
+option go_package = "DSMA4/grpc/proto";
+
+
+// Declare messages
+message Message {
+  string msg = 1;
+  string author = 2;
+  int32 lamportTimestamp = 3;
+  int32 id = 4; 
+}
+
+message TimeMessage {
+    int32 lamportTimestamp = 1; 
+}
+
+// Declare gRPC services
+service UserServer {
+  rpc MessageToServer (Message) returns (TimeMessage) {}; // Make a GET to the Server
+}
