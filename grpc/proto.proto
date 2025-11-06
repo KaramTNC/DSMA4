@@ -3,11 +3,9 @@ option go_package = "DSMA4/grpc/proto";
 
 
 // Declare messages
-message Message {
-  string msg = 1;
-  string author = 2;
-  int32 lamportTimestamp = 3;
-  int32 id = 4; 
+message Request {
+  int32 lamportTimestamp = 1;
+  int32 id = 2; 
 }
 
 message TimeMessage {
@@ -16,5 +14,5 @@ message TimeMessage {
 
 // Declare gRPC services
 service UserServer {
-  rpc MessageToServer (Message) returns (TimeMessage) {}; // Make a GET to the Server
+  rpc RequestAccess (Request) returns (TimeMessage) {};
 }

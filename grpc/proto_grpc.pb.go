@@ -19,7 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	UserServer_MessageToServer_FullMethodName = "/UserServer/MessageToServer"
+	UserServer_RequestAccess_FullMethodName = "/UserServer/RequestAccess"
 )
 
 // UserServerClient is the client API for UserServer service.
@@ -28,7 +28,7 @@ const (
 //
 // Declare gRPC services
 type UserServerClient interface {
-	MessageToServer(ctx context.Context, in *Message, opts ...grpc.CallOption) (*TimeMessage, error)
+	RequestAccess(ctx context.Context, in *Request, opts ...grpc.CallOption) (*TimeMessage, error)
 }
 
 type userServerClient struct {
@@ -39,10 +39,10 @@ func NewUserServerClient(cc grpc.ClientConnInterface) UserServerClient {
 	return &userServerClient{cc}
 }
 
-func (c *userServerClient) MessageToServer(ctx context.Context, in *Message, opts ...grpc.CallOption) (*TimeMessage, error) {
+func (c *userServerClient) RequestAccess(ctx context.Context, in *Request, opts ...grpc.CallOption) (*TimeMessage, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TimeMessage)
-	err := c.cc.Invoke(ctx, UserServer_MessageToServer_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, UserServer_RequestAccess_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (c *userServerClient) MessageToServer(ctx context.Context, in *Message, opt
 //
 // Declare gRPC services
 type UserServerServer interface {
-	MessageToServer(context.Context, *Message) (*TimeMessage, error)
+	RequestAccess(context.Context, *Request) (*TimeMessage, error)
 	mustEmbedUnimplementedUserServerServer()
 }
 
@@ -66,8 +66,8 @@ type UserServerServer interface {
 // pointer dereference when methods are called.
 type UnimplementedUserServerServer struct{}
 
-func (UnimplementedUserServerServer) MessageToServer(context.Context, *Message) (*TimeMessage, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method MessageToServer not implemented")
+func (UnimplementedUserServerServer) RequestAccess(context.Context, *Request) (*TimeMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RequestAccess not implemented")
 }
 func (UnimplementedUserServerServer) mustEmbedUnimplementedUserServerServer() {}
 func (UnimplementedUserServerServer) testEmbeddedByValue()                    {}
@@ -90,20 +90,20 @@ func RegisterUserServerServer(s grpc.ServiceRegistrar, srv UserServerServer) {
 	s.RegisterService(&UserServer_ServiceDesc, srv)
 }
 
-func _UserServer_MessageToServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Message)
+func _UserServer_RequestAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Request)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UserServerServer).MessageToServer(ctx, in)
+		return srv.(UserServerServer).RequestAccess(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: UserServer_MessageToServer_FullMethodName,
+		FullMethod: UserServer_RequestAccess_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServerServer).MessageToServer(ctx, req.(*Message))
+		return srv.(UserServerServer).RequestAccess(ctx, req.(*Request))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -116,8 +116,8 @@ var UserServer_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*UserServerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "MessageToServer",
-			Handler:    _UserServer_MessageToServer_Handler,
+			MethodName: "RequestAccess",
+			Handler:    _UserServer_RequestAccess_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
