@@ -1,6 +1,7 @@
 package main
 
 import (
+	lamportclock "DSMA4/General"
 	proto "DSMA4/grpc"
 	"bufio"
 	"context"
@@ -9,6 +10,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -16,11 +19,29 @@ import (
 
 var id int32
 var ch chan (string) = make(chan string)
-var otherClients = []proto.UserServerClient{}
+var clock lamportclock.SafeClock
+var state string = "RELEASED"
+var timeAtRequest int32
+
+var queue = []int32{}
 
 type UserServer struct {
 	proto.UnimplementedUserServerServer
 }
+
+type AccessList struct {
+	AccessFromOthers map[int32]bool
+	sync.Mutex
+}
+
+var accessList = &AccessList{AccessFromOthers: make(map[int32]bool)}
+
+type Clients struct {
+	Clients map[int32]proto.UserServerClient
+	sync.Mutex
+}
+
+var otherClients = &Clients{Clients: make(map[int32]proto.UserServerClient)}
 
 func main() {
 	log.Println("Please enter a unique Id of either 1, 2 or 3:")
@@ -30,13 +51,116 @@ func main() {
 	server := &UserServer{}
 	go server.startServer()
 
-	<-ch
-	waitForAccept()
-	connectToClients()
+	clock.Iterate()
 
-	for _, client := range otherClients {
-		client.RequestAccess(context.Background(), &proto.Request{Id: id})
+	<-ch
+	waitForAcceptFromUser("Waiting to proceed, press Y when all servers are up")
+	clock.Iterate()
+	connectToClients()
+	clock.Iterate()
+
+	for {
+		// get consent from user
+		waitForAcceptFromUser("Do you want to enter the critical section? press Y when ready")
+		clock.Iterate()
+
+		log.Println("Waiting for permission ...")
+		state = "WANTED"
+		timeAtRequest = clock.GetTime()
+		// Asking for permission
+		otherClients.Lock()
+		for _, client := range otherClients.Clients {
+			timeRespons, err := client.RequestAccess(context.Background(), &proto.Request{Id: id, LamportTimestamp: clock.GetTime()})
+			if err != nil {
+				log.Fatal("An error has accured", err)
+			}
+			clock.MatchTime(timeRespons.GetLamportTimestamp())
+		}
+		otherClients.Unlock()
+		clock.Iterate()
+
+		// waiting for permission to be granted
+		waitForPermissionFromClients()
+
+		log.Println("Access granted. Now accessing critical section")
+
+		clock.Iterate()
+		state = "HELD"
+		time.Sleep(5 * time.Second) // Critical seciton
+		state = "RELEASED"
+
+		clock.Iterate()
+
+		for _, id := range queue {
+			grantAccessTo(id)
+		}
+
+		clock.Iterate()
+
+		log.Println("now exiting the critical section.")
 	}
+}
+
+func (s *UserServer) RequestAccess(ctx context.Context, request *proto.Request) (*proto.TimeMessage, error) {
+	clock.MatchTime(request.GetLamportTimestamp())
+
+	var IHaveAskFirst bool = timeAtRequest < request.GetLamportTimestamp()
+	var WeAskedSameTime bool = timeAtRequest == request.GetLamportTimestamp()
+	var IHaveSmallestId bool = id < request.GetId()
+
+	if state == "HELD" ||
+		(state == "WANTED" && (IHaveAskFirst ||
+			(WeAskedSameTime && IHaveSmallestId))) {
+		queue = append(queue, request.GetId())
+	} else {
+		grantAccessTo(request.GetId())
+	}
+
+	return &proto.TimeMessage{LamportTimestamp: clock.GetTime()}, nil
+}
+
+func (s *UserServer) GrantAccess(ctx context.Context, response *proto.Response) (*proto.TimeMessage, error) {
+	clock.MatchTime(response.GetLamportTimestamp())
+	//log.Println("I got acces from user", response.IdFromRespondee)
+	accessList.Lock()
+	accessList.AccessFromOthers[response.IdFromRespondee] = true
+	accessList.Unlock()
+	//log.Println("Done giving acces")
+	return &proto.TimeMessage{LamportTimestamp: clock.GetTime()}, nil
+}
+
+func grantAccessTo(idToGrantAccess int32) {
+	otherClients.Lock()
+	timeResponse, err := otherClients.Clients[idToGrantAccess].GrantAccess(context.Background(), &proto.Response{IdFromRespondee: id, LamportTimestamp: clock.GetTime()})
+	if err != nil {
+		log.Fatal("An error has accured", err)
+	}
+	clock.MatchTime(timeResponse.GetLamportTimestamp())
+	otherClients.Unlock()
+}
+
+func waitForPermissionFromClients() {
+	for {
+		hasAccess := true
+		otherClients.Lock()
+		for clientID, _ := range otherClients.Clients {
+			accessList.Lock()
+			if !accessList.AccessFromOthers[clientID] {
+				hasAccess = false
+			}
+			accessList.Unlock()
+		}
+		otherClients.Unlock()
+		if hasAccess {
+			break
+		}
+	}
+
+	accessList.Lock()
+	for clientID, _ := range accessList.AccessFromOthers {
+		accessList.AccessFromOthers[clientID] = false
+	}
+	accessList.Unlock()
 }
 
 func (s *UserServer) startServer() {
@@ -58,7 +182,6 @@ func (s *UserServer) startServer() {
 }
 
 func connectToClients() {
-
 	for i := 1; i <= 3; i++ {
 		if i == int(id) {
 			continue
@@ -70,17 +193,15 @@ func connectToClients() {
 			log.Fatalf("Could not connect: %v", err)
 		}
 		client := proto.NewUserServerClient(conn)
-		otherClients = append(otherClients, client)
+		otherClients.Lock()
+		otherClients.Clients[int32(i)] = client
+		otherClients.Unlock()
+		accessList.Lock()
+		accessList.AccessFromOthers[int32(i)] = false
+		accessList.Unlock()
 
 		log.Println("Connected to " + port)
 	}
-
-}
-
-func (s *UserServer) RequestAccess(ctx context.Context, request *proto.Request) (*proto.TimeMessage, error) {
-	log.Println("User with id: ", request.GetId(), "wanted to enter the critical section")
-
-	return &proto.TimeMessage{}, nil
 }
 
 func readTerminal() int32 {
@@ -105,12 +226,12 @@ func readTerminal() int32 {
 	return int32(inputInt)
 }
 
-func waitForAccept() {
+func waitForAcceptFromUser(message string) {
 	for {
-		log.Println("Waiting to proceed, press Y when all servers are up")
+		log.Println(message)
 		inputString := readFromUser()
 
-		if inputString == "Y" {
+		if inputString == "Y" || inputString == "y" {
 			return
 		}
 	}

@@ -8,6 +8,11 @@ message Request {
   int32 id = 2; 
 }
 
+message Response {
+  int32 lamportTimestamp = 1;
+  int32 idFromRespondee = 2; 
+}
+
 message TimeMessage {
     int32 lamportTimestamp = 1; 
 }
@@ -15,4 +20,5 @@ message TimeMessage {
 // Declare gRPC services
 service UserServer {
   rpc RequestAccess (Request) returns (TimeMessage) {};
+  rpc GrantAccess (Response) returns (TimeMessage) {};
 }

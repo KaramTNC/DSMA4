@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	UserServer_RequestAccess_FullMethodName = "/UserServer/RequestAccess"
+	UserServer_GrantAccess_FullMethodName   = "/UserServer/GrantAccess"
 )
 
 // UserServerClient is the client API for UserServer service.
@@ -29,6 +30,7 @@ const (
 // Declare gRPC services
 type UserServerClient interface {
 	RequestAccess(ctx context.Context, in *Request, opts ...grpc.CallOption) (*TimeMessage, error)
+	GrantAccess(ctx context.Context, in *Response, opts ...grpc.CallOption) (*TimeMessage, error)
 }
 
 type userServerClient struct {
@@ -49,6 +51,16 @@ func (c *userServerClient) RequestAccess(ctx context.Context, in *Request, opts 
 	return out, nil
 }
 
+func (c *userServerClient) GrantAccess(ctx context.Context, in *Response, opts ...grpc.CallOption) (*TimeMessage, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TimeMessage)
+	err := c.cc.Invoke(ctx, UserServer_GrantAccess_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServerServer is the server API for UserServer service.
 // All implementations must embed UnimplementedUserServerServer
 // for forward compatibility.
@@ -56,6 +68,7 @@ func (c *userServerClient) RequestAccess(ctx context.Context, in *Request, opts 
 // Declare gRPC services
 type UserServerServer interface {
 	RequestAccess(context.Context, *Request) (*TimeMessage, error)
+	GrantAccess(context.Context, *Response) (*TimeMessage, error)
 	mustEmbedUnimplementedUserServerServer()
 }
 
@@ -68,6 +81,9 @@ type UnimplementedUserServerServer struct{}
 
 func (UnimplementedUserServerServer) RequestAccess(context.Context, *Request) (*TimeMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestAccess not implemented")
+}
+func (UnimplementedUserServerServer) GrantAccess(context.Context, *Response) (*TimeMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GrantAccess not implemented")
 }
 func (UnimplementedUserServerServer) mustEmbedUnimplementedUserServerServer() {}
 func (UnimplementedUserServerServer) testEmbeddedByValue()                    {}
@@ -108,6 +124,24 @@ func _UserServer_RequestAccess_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserServer_GrantAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Response)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServerServer).GrantAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserServer_GrantAccess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServerServer).GrantAccess(ctx, req.(*Response))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserServer_ServiceDesc is the grpc.ServiceDesc for UserServer service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -118,6 +152,10 @@ var UserServer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RequestAccess",
 			Handler:    _UserServer_RequestAccess_Handler,
+		},
+		{
+			MethodName: "GrantAccess",
+			Handler:    _UserServer_GrantAccess_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
