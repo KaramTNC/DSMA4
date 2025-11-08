@@ -77,10 +77,10 @@ func connectToClients() {
 
 }
 
-func (s *UserServer) RequestAccess(ctx context.Context, request proto.Request) (proto.TimeMessage, error) {
+func (s *UserServer) RequestAccess(ctx context.Context, request *proto.Request) (*proto.TimeMessage, error) {
 	log.Println("User with id: ", request.GetId(), "wanted to enter the critical section")
 
-	return proto.TimeMessage{}, nil
+	return &proto.TimeMessage{}, nil
 }
 
 func readTerminal() int32 {
