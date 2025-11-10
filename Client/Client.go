@@ -45,7 +45,7 @@ var otherClients = &Clients{Clients: make(map[int32]proto.UserServerClient)}
 
 func main() {
 	log.Println("Please enter a unique Id of either 1, 2 or 3:")
-	id = readTerminal()
+	id = readIdFromUser()
 	log.Println("Current Id:", id)
 
 	server := &UserServer{}
@@ -53,9 +53,9 @@ func main() {
 
 	clock.Iterate()
 
+	// wait for server to start
 	<-ch
-	waitForAcceptFromUser("Waiting to proceed, press Y when all servers are up")
-	clock.Iterate()
+
 	connectToClients()
 	clock.Iterate()
 
@@ -121,11 +121,9 @@ func (s *UserServer) RequestAccess(ctx context.Context, request *proto.Request) 
 
 func (s *UserServer) GrantAccess(ctx context.Context, response *proto.Response) (*proto.TimeMessage, error) {
 	clock.MatchTime(response.GetLamportTimestamp())
-	//log.Println("I got acces from user", response.IdFromRespondee)
 	accessList.Lock()
 	accessList.AccessFromOthers[response.IdFromRespondee] = true
 	accessList.Unlock()
-	//log.Println("Done giving acces")
 	return &proto.TimeMessage{LamportTimestamp: clock.GetTime()}, nil
 }
 
@@ -193,6 +191,7 @@ func connectToClients() {
 			log.Fatalf("Could not connect: %v", err)
 		}
 		client := proto.NewUserServerClient(conn)
+
 		otherClients.Lock()
 		otherClients.Clients[int32(i)] = client
 		otherClients.Unlock()
@@ -204,7 +203,7 @@ func connectToClients() {
 	}
 }
 
-func readTerminal() int32 {
+func readIdFromUser() int32 {
 	var inputInt int
 
 	for {
