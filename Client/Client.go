@@ -45,7 +45,7 @@ var otherClients = &Clients{Clients: make(map[int32]proto.UserServerClient)}
 
 func main() {
 	log.Println("Please enter a unique Id of either 1, 2 or 3:")
-	id = readIdFromUser()
+	id = readTerminal()
 	log.Println("Current Id:", id)
 
 	server := &UserServer{}
@@ -53,7 +53,6 @@ func main() {
 
 	clock.Iterate()
 
-	// wait for server to start
 	<-ch
 
 	connectToClients()
@@ -64,7 +63,7 @@ func main() {
 		waitForAcceptFromUser("Do you want to enter the critical section? press Y when ready")
 		clock.Iterate()
 
-		log.Println("Waiting for permission ...")
+		log.Println("Waiting for permission at logical time", clock.GetTime(), "...")
 		state = "WANTED"
 		timeAtRequest = clock.GetTime()
 		// Asking for permission
@@ -82,7 +81,7 @@ func main() {
 		// waiting for permission to be granted
 		waitForPermissionFromClients()
 
-		log.Println("Access granted. Now accessing critical section")
+		log.Println("Access granted. Now accessing critical section at logical time", clock.GetTime())
 
 		clock.Iterate()
 		state = "HELD"
@@ -97,7 +96,7 @@ func main() {
 
 		clock.Iterate()
 
-		log.Println("now exiting the critical section.")
+		log.Println("now exiting the critical section at logical time", clock.GetTime())
 	}
 }
 
@@ -191,7 +190,6 @@ func connectToClients() {
 			log.Fatalf("Could not connect: %v", err)
 		}
 		client := proto.NewUserServerClient(conn)
-
 		otherClients.Lock()
 		otherClients.Clients[int32(i)] = client
 		otherClients.Unlock()
@@ -203,7 +201,7 @@ func connectToClients() {
 	}
 }
 
-func readIdFromUser() int32 {
+func readTerminal() int32 {
 	var inputInt int
 
 	for {
